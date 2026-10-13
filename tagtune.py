@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SongGrab: paste a YouTube link, get a tagged MP3 in ~/Music/songgrab."""
+"""TagTune: paste a YouTube link, get a tagged MP3 in ~/Music/tagtune."""
 import glob
 import json
 import logging
@@ -20,13 +20,13 @@ from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
-OUT_DIR = Path.home() / "Music" / "songgrab"
+OUT_DIR = Path.home() / "Music" / "tagtune"
 # each job builds its files in its own hidden ".tmp-…" folder inside OUT_DIR and only moves finished
 # songs out, so two open windows can never delete each other's work
 _job_dirs = set()
-CONFIG = Path.home() / ".config" / "songgrab" / "config.json"
-LOG_FILE = Path.home() / ".local" / "state" / "songgrab" / "songgrab.log"
-USER_AGENT = "SongGrab/1.0 (personal desktop app)"
+CONFIG = Path.home() / ".config" / "tagtune" / "config.json"
+LOG_FILE = Path.home() / ".local" / "state" / "tagtune" / "tagtune.log"
+USER_AGENT = "TagTune/1.0 (personal desktop app)"
 YT_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
 PLAYLIST_CONFIRM = 25
 MIN_FREE_BYTES = 500 * 1024 * 1024
@@ -42,7 +42,7 @@ OFFICIAL_SOURCES = (
     ("SoundCloud", lambda q: f"scsearch5:{q}", False),
 )
 
-log = logging.getLogger("songgrab")
+log = logging.getLogger("tagtune")
 
 
 # ---------- validation and text helpers ----------
@@ -766,7 +766,7 @@ class App:
         self.style.configure("Title.TLabel", font=title_font)
         self.style.configure("Accent.TButton", font=bold)
 
-        root.title("SongGrab")
+        root.title("TagTune")
         root.geometry("640x500")
         root.minsize(560, 440)
         f = ttk.Frame(root, padding=16)
@@ -774,7 +774,7 @@ class App:
         f.columnconfigure(0, weight=1)
         f.rowconfigure(7, weight=1)
 
-        ttk.Label(f, text="SongGrab", style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(f, text="TagTune", style="Title.TLabel").grid(row=0, column=0, sticky="w")
         self.theme_btn = ttk.Button(f, command=self.toggle_theme, takefocus=False)
         self.theme_btn.grid(row=0, column=1, sticky="e")
 
@@ -1164,7 +1164,7 @@ def main():
         logging.basicConfig(level=logging.INFO)
     import tkinter as tk
 
-    root = tk.Tk(className="SongGrab")
+    root = tk.Tk(className="TagTune")
     App(root)
     root.mainloop()
 
