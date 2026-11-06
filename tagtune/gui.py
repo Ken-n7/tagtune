@@ -322,6 +322,10 @@ class App:
                     arrowcolor=p["muted"], lightcolor=p["border"], darkcolor=p["border"])
         s.map("TScrollbar", background=[("active", p["muted"])])
         s.configure("TMenubutton", background=p["surface"], foreground=p["text"], arrowcolor=p["muted"])
+        s.map("TMenubutton", background=[("active", p["bg"])], foreground=[("active", p["text"])])
+        for key, color in (("background", "surface"), ("foreground", "text"), ("activeBackground", "accent"),
+                           ("activeForeground", "on_accent")):
+            self.root.option_add(f"*Menu.{key}", p[color])  # the folder picker's directory dropdown
         self.root.setvar("::tagtune_bg", p["surface"])
         self.root.setvar("::tagtune_fg", p["text"])
         s.configure("Horizontal.TProgressbar", background=p["accent"], lightcolor=p["accent"],
@@ -361,6 +365,7 @@ class App:
 
     def show_message(self, text):
         self.msg.configure(text=f"⚠ {text}" if text else "")
+        self.msg.grid() if text else self.msg.grid_remove()  # an empty line would leave a gap above the bar
 
     def start(self):
         if self.running or self.blocked or self.updating:
