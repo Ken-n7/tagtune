@@ -39,6 +39,14 @@ def selftest():
     assert guess_tags({"title": "Somewhere I Belong (Official Music Video) [4K UPGRADE] – Linkin Park",
                        "uploader": "Linkin Park"})[:2] == ("Linkin Park", "Somewhere I Belong"), "Song – Artist"
     assert guess_tags({"title": "Linkin Park — Numb", "uploader": "someone"})[:2] == ("Linkin Park", "Numb")
+    import tempfile
+    from pathlib import Path
+    from .gui import scan_library
+    with tempfile.TemporaryDirectory() as tmp:
+        for name in ("A - Song.mp3", "Playlist/B - Two.mp3", ".tmp-x/C - Half.mp3", ".hidden.mp3"):
+            (Path(tmp) / name).parent.mkdir(parents=True, exist_ok=True)
+            (Path(tmp) / name).write_bytes(b"")
+        assert sorted(s[1] for s in scan_library(tmp)) == ["Song", "Two"], "hidden files and folders are skipped"
     assert guess_tags({"title": "Song – Not The Channel", "uploader": "Band"})[:2] == ("Song", "Not The Channel")
 
     def rel(title, kind, secondary=(), date="2001", status="Official"):

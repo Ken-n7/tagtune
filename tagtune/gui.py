@@ -62,6 +62,8 @@ def scan_library(folder):
 
     songs = []
     for path in Path(folder).rglob("*.mp3"):
+        if any(part.startswith(".") for part in path.relative_to(folder).parts):
+            continue  # hidden files, and the app's own .tmp- download folders mid-download
         artist, _, title = path.stem.rpartition(" - ")
         tags, seconds = {}, 0
         try:
