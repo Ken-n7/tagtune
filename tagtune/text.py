@@ -36,7 +36,8 @@ def validate_url(text):
 # "[4K Remaster]". Anything else names a different recording and must stay: "(Live Video)",
 # "(8D Audio)", "(Acoustic Video)", "(Official Cover Video)".
 FILLER = {"official", "oficial", "officiel", "music", "video", "vídeo", "videoclip", "clip", "audio", "lyric", "lyrics",
-          "visualizer", "visualiser", "hd", "uhd", "hq", "4k", "mv", "m", "v", "remaster", "remastered", "full", "with"}
+          "visualizer", "visualiser", "hd", "uhd", "hq", "4k", "mv", "m", "v", "remaster", "remastered", "full", "with",
+          "upgrade", "upgraded"}
 BRACKET = re.compile(r"\s*[\(\[]([^\)\]]*)[\)\]]")
 # a video title that says the song is a cover: "(X Cover)", "cover by X", "... cover"
 COVER = re.compile(r"[\(\[][^\)\]]*\bcover\b|\bcover(s|ed)?\s+(by|of)\b|\bcover\s*$", re.I)
@@ -72,9 +73,12 @@ def guess_tags(info):
     cover = not info.get("track") and COVER.search(title)
     if cover:
         artist = channel  # a cover belongs to whoever performs it, not the artist named in the title
-    left, sep, right = title.partition(" - ")
+    sep = DASH.search(title)
+    left, right = (title[:sep.start()], title[sep.end():]) if sep else (title, "")
+    if sep and not cover and norm(right) in {norm(artist), norm(channel)} - {""}:
+        artist, title = artist or right, left  # "Song – Artist" video titles
     # "Artist - Song" video titles, and track names that repeat the artist (common on SoundCloud)
-    if sep and (norm(left) == norm(artist) or not (info.get("track") or cover)):
+    elif sep and (norm(left) == norm(artist) or not (info.get("track") or cover)):
         artist, title = artist or left, right
     return (artist or channel).strip(), clean_title(title), info.get("album")
 
@@ -83,6 +87,7 @@ def norm(s):
     return re.sub(r"\W+", "", (s or "").casefold())
 
 
+DASH = re.compile(r"\s+[-–—]\s+")  # "Artist - Song", also with en and em dashes
 CHANNEL_SUFFIX = re.compile(r"\s*(-\s*Topic|VEVO)$")
 ARTIST_SPLIT = re.compile(r"\s*(?:,|&|\+|;|\bx\b|\band\b|\bfeat\b\.?|\bft\b\.?|\bfeaturing\b|\bwith\b|\bvs\b\.?)\s*", re.I)
 

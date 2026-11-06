@@ -36,6 +36,10 @@ def selftest():
     assert cover("Daft Punk - Discovery (Official Video)", "Daft Punk") == ("Daft Punk", "Discovery"), "'Discovery' is no cover"
     assert COVER.search("Song - cover by X") and COVER.search("Song acoustic cover") and not COVER.search("Cover Me")
     assert guess_tags({"title": "Just A Title", "uploader": "Some Band - Topic"}) == ("Some Band", "Just A Title", None)
+    assert guess_tags({"title": "Somewhere I Belong (Official Music Video) [4K UPGRADE] – Linkin Park",
+                       "uploader": "Linkin Park"})[:2] == ("Linkin Park", "Somewhere I Belong"), "Song – Artist"
+    assert guess_tags({"title": "Linkin Park — Numb", "uploader": "someone"})[:2] == ("Linkin Park", "Numb")
+    assert guess_tags({"title": "Song – Not The Channel", "uploader": "Band"})[:2] == ("Song", "Not The Channel")
 
     def rel(title, kind, secondary=(), date="2001", status="Official"):
         return {"id": title, "title": title, "status": status, "date": date,
