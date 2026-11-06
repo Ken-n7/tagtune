@@ -1,7 +1,6 @@
 """User-facing errors."""
 import re
 
-from .config import OUT_DIR
 
 class Problem(Exception):
     """Something the user should be told as is."""
@@ -15,8 +14,8 @@ def friendly(err):
     low = msg.lower()
     known = (
         ("no space left", "The disk is full. Free some space and try again."),
-        ("permission denied", f"Can't write to {OUT_DIR}. Check that folder's permissions."),
-        ("read-only file system", f"Can't write to {OUT_DIR}. Check that folder's permissions."),
+        ("permission denied", "Can't write to the save folder. Check its permissions or pick another one."),
+        ("read-only file system", "Can't write to the save folder. Check its permissions or pick another one."),
         ("private video", "This video is private."),
         ("confirm your age", "This video is age-restricted, so it can't be downloaded."),
         ("not available in your country", "This video is blocked in your country."),

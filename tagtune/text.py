@@ -52,12 +52,16 @@ def clean_title(title):
     return cleaned or title.strip()
 
 
-def file_name(artist, title):
-    """Safe "Artist - Title" for a file: never hidden, and short enough for any filesystem."""
+def safe_name(text, fallback):
+    """text made safe as a file or folder name: never hidden, and short enough for any filesystem."""
     from yt_dlp.utils import sanitize_filename
 
-    name = sanitize_filename(f"{artist} - {title}").lstrip(". ") or "song"
-    return name.encode()[:200].decode(errors="ignore").rstrip(". ") or "song"
+    name = sanitize_filename(text).lstrip(". ") or fallback
+    return name.encode()[:200].decode(errors="ignore").rstrip(". ") or fallback
+
+
+def file_name(artist, title):
+    return safe_name(f"{artist} - {title}", "song")
 
 
 def guess_tags(info):

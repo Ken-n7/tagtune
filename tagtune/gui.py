@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 from .config import CONFIG, OUT_DIR, _job_dirs, log
 from .text import validate_url
@@ -32,12 +33,30 @@ def system_theme():
         return "light"
 
 
-def load_theme():
+def load_settings():
     try:
-        theme = json.loads(CONFIG.read_text()).get("theme")
-    except (OSError, ValueError, AttributeError):
-        theme = None
+        settings = json.loads(CONFIG.read_text())
+        return settings if isinstance(settings, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_setting(key, value):
+    try:
+        CONFIG.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG.write_text(json.dumps({**load_settings(), key: value}))
+    except OSError:
+        log.exception("could not save %s", key)
+
+
+def load_theme():
+    theme = load_settings().get("theme")
     return theme if theme in PALETTES else system_theme()
+
+
+def load_out_dir():
+    folder = load_settings().get("folder")
+    return Path(folder) if isinstance(folder, str) and folder else OUT_DIR
 
 
 class App:
@@ -53,6 +72,7 @@ class App:
         self.updating = False
         self.stale = False
         self.theme = load_theme()
+        self.out_dir = load_out_dir()
         self.style = ttk.Style(root)
         self.style.theme_use("clam")
 
@@ -109,7 +129,9 @@ class App:
         foot.grid(row=8, column=0, columnspan=2, sticky="ew")
         foot.columnconfigure(0, weight=1)
         self.update_btn = ttk.Button(foot, text="Update downloader", command=self.update_downloader)
-        ttk.Button(foot, text="Open folder", command=self.open_folder).grid(row=0, column=2, sticky="e")
+        self.folder_btn = ttk.Button(foot, text="Change folder…", command=self.change_folder)
+        self.folder_btn.grid(row=0, column=2, sticky="e", padx=(0, 8))
+        ttk.Button(foot, text="Open folder", command=self.open_folder).grid(row=0, column=3, sticky="e")
 
         f.bind("<Configure>", lambda e: self.msg.configure(wraplength=max(200, e.width - 32)))
         root.bind("<Return>", lambda e: self.start())
@@ -117,11 +139,7 @@ class App:
         root.protocol("WM_DELETE_WINDOW", self.close)
         self.apply_theme()
 
-        fatal, warnings = preflight()
-        self.blocked = bool(fatal)
-        if fatal:
-            self.go.state(["disabled"])
-        self.show_message(fatal or " ".join(warnings))
+        self.check_folder()
         try:
             clip, err = validate_url(root.clipboard_get())
         except tk.TclError:
@@ -176,13 +194,26 @@ class App:
     def toggle_theme(self):
         self.theme = "light" if self.theme == "dark" else "dark"
         self.apply_theme()
-        try:
-            CONFIG.parent.mkdir(parents=True, exist_ok=True)
-            CONFIG.write_text(json.dumps({"theme": self.theme}))
-        except OSError:
-            log.exception("could not save theme")
+        save_setting("theme", self.theme)
 
     # actions
+
+    def check_folder(self):
+        fatal, warnings = preflight(self.out_dir)
+        self.blocked = bool(fatal)
+        self.go.state(["disabled" if fatal else "!disabled"])
+        self.show_message(fatal or " ".join(warnings))
+        self.status.configure(text=f"Saving to {self.out_dir}")
+
+    def change_folder(self):
+        from tkinter import filedialog
+
+        folder = filedialog.askdirectory(title="Save songs to", initialdir=self.out_dir, mustexist=False)
+        if not folder:
+            return
+        self.out_dir = Path(folder)
+        save_setting("folder", folder)
+        self.check_folder()
 
     def show_message(self, text):
         self.msg.configure(text=f"⚠ {text}" if text else "")
@@ -200,7 +231,7 @@ class App:
         self.update_btn.grid_forget()
         self.cancel.clear()
         emit = lambda *m: self.q.put(m)  # noqa: E731
-        threading.Thread(target=run_job, args=(url, emit, self.cancel, self.confirm, self.exact.get()),
+        threading.Thread(target=run_job, args=(url, self.out_dir, emit, self.cancel, self.confirm, self.exact.get()),
                          daemon=True).start()
 
     def stop(self):
@@ -212,6 +243,7 @@ class App:
         self.running = running
         self.entry.state(["disabled" if running else "!disabled"])
         self.exact_box.state(["disabled" if running else "!disabled"])
+        self.folder_btn.state(["disabled" if running else "!disabled"])
         self.go.configure(text="Cancel" if running else "Download",
                           style="TButton" if running else "Accent.TButton",
                           command=self.stop if running else self.start)
@@ -231,10 +263,10 @@ class App:
 
     def open_folder(self):
         try:
-            OUT_DIR.mkdir(parents=True, exist_ok=True)
-            subprocess.Popen(["xdg-open", str(OUT_DIR)])
+            self.out_dir.mkdir(parents=True, exist_ok=True)
+            subprocess.Popen(["xdg-open", str(self.out_dir)])
         except OSError:
-            self.show_message(f"Couldn't open {OUT_DIR}.")
+            self.show_message(f"Couldn't open {self.out_dir}.")
 
     def update_downloader(self):
         if self.running or self.updating:
@@ -326,7 +358,7 @@ class App:
 
     def on_updated(self, ok):
         if ok:
-            os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
+            os.execv(sys.executable, [sys.executable, "-m", "tagtune"])
         self.updating = False
         self.busy(False)
         self.update_btn.state(["!disabled"])

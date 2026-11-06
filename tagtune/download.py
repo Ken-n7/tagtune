@@ -12,8 +12,8 @@ from itertools import chain
 from pathlib import Path
 from urllib.parse import urlparse
 
-from .config import DURATION_SLACK, MIN_FREE_BYTES, OFFICIAL_SOURCES, OUT_DIR, PLAYLIST_CONFIRM, _job_dirs, log
-from .text import COVER, file_name, guess_tags, same_artist, same_song, same_title
+from .config import DURATION_SLACK, MIN_FREE_BYTES, OFFICIAL_SOURCES, PLAYLIST_CONFIRM, _job_dirs, log
+from .text import COVER, file_name, safe_name, guess_tags, same_artist, same_song, same_title
 from .errors import Problem, friendly
 from .metadata import TAG_SOURCES, write_tags
 
@@ -48,15 +48,15 @@ def peak_db(path):
         return None
 
 
-def preflight():
+def preflight(out_dir):
     """(fatal_message or None, [warnings]) checked once at startup."""
     try:
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
     except OSError:
         pass
-    if not (OUT_DIR.is_dir() and os.access(OUT_DIR, os.W_OK)):
-        return f"Can't save songs: {OUT_DIR} is missing or not writable.", []
-    for stale in OUT_DIR.glob(".tmp*"):  # a live job keeps touching its folder, a crashed one doesn't
+    if not (out_dir.is_dir() and os.access(out_dir, os.W_OK)):
+        return f"Can't save songs: {out_dir} is missing or not writable.", []
+    for stale in out_dir.glob(".tmp*"):  # a live job keeps touching its folder, a crashed one doesn't
         if time.time() - stale.stat().st_mtime > 24 * 3600:
             shutil.rmtree(stale, ignore_errors=True)
     if not find_ffmpeg():
@@ -64,7 +64,7 @@ def preflight():
     warnings = []
     if not (find_node() or shutil.which("deno")):
         warnings.append("Node.js wasn't found, so some YouTube downloads may fail.")
-    if shutil.disk_usage(OUT_DIR).free < MIN_FREE_BYTES:
+    if shutil.disk_usage(out_dir).free < MIN_FREE_BYTES:
         warnings.append("Less than 500 MB of disk space is free.")
     return None, warnings
 
@@ -97,7 +97,7 @@ def ydl_opts(hook, tmp):
     }
 
 
-def run_job(url, emit, cancel, confirm, exact=False):
+def run_job(url, out_dir, emit, cancel, confirm, exact=False):
     """Download and tag everything behind url. Runs on a worker thread; never raises.
     With exact, the audio always comes from the pasted link itself, never an official copy."""
     from yt_dlp import YoutubeDL
@@ -119,6 +119,7 @@ def run_job(url, emit, cancel, confirm, exact=False):
             return [], info
 
     counts = Counter()
+    dest = out_dir  # a playlist's songs go in a folder named after it
     where = ""
     tmp = None
     # a YouTube Music link is already the official recording; anything else gets looked up
@@ -195,7 +196,7 @@ def run_job(url, emit, cancel, confirm, exact=False):
         for src, site in sources:  # official copies first, the pasted video last
             artist, title, album = guess_tags(src)
             name = f"{artist} - {title}"
-            final = OUT_DIR / (file_name(artist, title) + ".mp3")
+            final = dest / (file_name(artist, title) + ".mp3")
             if final.exists():
                 counts["skipped"] += 1
                 emit("row", "skip", name, "Already downloaded")
@@ -235,8 +236,8 @@ def run_job(url, emit, cancel, confirm, exact=False):
         emit("row", kind, name, note + (f" · official audio from {site}" if site else ""))
 
     try:
-        OUT_DIR.mkdir(parents=True, exist_ok=True)
-        tmp = tempfile.mkdtemp(prefix=".tmp-", dir=OUT_DIR)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        tmp = tempfile.mkdtemp(prefix=".tmp-", dir=out_dir)
         _job_dirs.add(tmp)
         emit("status", "Checking link…")
         with YoutubeDL(ydl_opts(hook, tmp)) as ydl:
@@ -260,6 +261,8 @@ def run_job(url, emit, cancel, confirm, exact=False):
                     fail(url, Problem("This playlist is empty."))
                 if len(items) > PLAYLIST_CONFIRM and not confirm(len(items)):
                     raise DownloadCancelled()
+                dest = out_dir / safe_name(first.get("title") or "", "Playlist")
+                dest.mkdir(exist_ok=True)
             elif first:
                 items = [(first, first.get("title") or url)]
             for i, (item, label) in enumerate(items, 1):
