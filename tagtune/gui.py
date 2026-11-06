@@ -124,7 +124,6 @@ class App:
         self.style.configure("Accent.TButton", font=bold)
         self.section_font = tkfont.nametofont("TkDefaultFont").copy()
         self.section_font.configure(size=10, weight="bold")
-        self.style.configure("Cursor.TLabel", font=title_font)
 
         root.title("TagTune")
         root.geometry("760x540")
@@ -139,12 +138,7 @@ class App:
         head = ttk.Frame(f)
         head.grid(row=0, column=0, sticky="ew")
         head.columnconfigure(0, weight=1)
-        brand = ttk.Frame(head)
-        brand.grid(row=0, column=0, sticky="w")
-        ttk.Label(brand, text="$ tagtune", style="Title.TLabel").pack(side="left")
-        self.cursor = ttk.Label(brand, text="█", style="Cursor.TLabel")
-        self.cursor.pack(side="left", padx=(4, 0))
-        self.blink()
+        ttk.Label(head, text="$ tagtune", style="Title.TLabel").grid(row=0, column=0, sticky="w")
         tools = ttk.Frame(head)
         tools.grid(row=0, column=1, sticky="e")
         self.update_btn = ttk.Button(tools, text="[ update downloader ]", command=self.update_downloader)
@@ -293,7 +287,6 @@ class App:
         s.configure("Muted.TLabel", foreground=p["muted"])
         s.configure("Section.TLabel", foreground=p["accent"], font=self.section_font)
         s.configure("Title.TLabel", foreground=p["text"])
-        s.configure("Cursor.TLabel", foreground=p["accent"])
         s.configure("Treeview", background=p["surface"], fieldbackground=p["surface"], foreground=p["text"],
                     bordercolor=p["border"], lightcolor=p["surface"], darkcolor=p["surface"], rowheight=28)
         s.map("Treeview", background=[("selected", p["accent"])], foreground=[("selected", p["on_accent"])])
@@ -342,10 +335,6 @@ class App:
         for tag, color in (("ok", "accent"), ("keep", "text"), ("skip", "muted"), ("fail", "error"), ("muted", "muted")):
             self.list.tag_configure(tag, foreground=p[color])
         self.theme_btn.configure(text="[ light ]" if self.theme == "dark" else "[ dark ]")
-
-    def blink(self):
-        self.cursor.configure(text="" if self.cursor.cget("text") else "█")
-        self.root.after(530, self.blink)
 
     def toggle_theme(self):
         self.theme = "light" if self.theme == "dark" else "dark"
