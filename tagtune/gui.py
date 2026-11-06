@@ -13,13 +13,13 @@ from .text import validate_url
 from .download import preflight, run_job
 
 PALETTES = {
-    "light": dict(bg="#F6F8F6", surface="#FFFFFF", text="#14201A", muted="#5B6B62", border="#D5DDD8",
-                  accent="#15803D", hover="#166534", on_accent="#FFFFFF", error="#B91C1C"),
-    "dark": dict(bg="#0F1512", surface="#18211C", text="#E6EFE9", muted="#9AA9A0", border="#2A3730",
-                 accent="#22C55E", hover="#4ADE80", on_accent="#06210F", error="#F87171"),
+    "light": dict(bg="#F3F0E6", surface="#FAF8F1", text="#1D2A21", muted="#6E7A70", border="#C8C1AC",
+                  accent="#1E7A3E", hover="#14592C", on_accent="#FAF8F1", error="#B3261E"),
+    "dark": dict(bg="#090D0B", surface="#0E1511", text="#C6F2D2", muted="#5F8A6C", border="#1E3427",
+                 accent="#4ADE80", hover="#86EFAC", on_accent="#04120A", error="#FF6B6B"),
 }
-SYMBOL = {"ok": "✓", "keep": "~", "skip": "=", "fail": "✗"}
-HINT = "Downloaded songs will appear here.\n"
+SYMBOL = {"ok": "[ok]", "keep": "[~~]", "skip": "[==]", "fail": "[!!]"}
+HINT = "# downloaded songs will appear here\n"
 
 
 def system_theme():
@@ -113,20 +113,22 @@ class App:
         root.tk.call("oo::define", "::tk::IconList", "method", "Create", "", body)
         self.style.theme_use("clam")
 
-        for name in ("TkDefaultFont", "TkTextFont"):
-            tkfont.nametofont(name).configure(size=11)
+        mono = tkfont.nametofont("TkFixedFont").actual("family")
+        for name in ("TkDefaultFont", "TkTextFont", "TkHeadingFont", "TkMenuFont"):
+            tkfont.nametofont(name).configure(family=mono, size=11)
         title_font = tkfont.nametofont("TkDefaultFont").copy()
-        title_font.configure(size=18, weight="bold")
+        title_font.configure(size=17, weight="bold")
         bold = tkfont.nametofont("TkDefaultFont").copy()
         bold.configure(weight="bold")
         self.style.configure("Title.TLabel", font=title_font)
         self.style.configure("Accent.TButton", font=bold)
         self.section_font = tkfont.nametofont("TkDefaultFont").copy()
-        self.section_font.configure(size=9, weight="bold")
+        self.section_font.configure(size=10, weight="bold")
+        self.style.configure("Cursor.TLabel", font=title_font)
 
         root.title("TagTune")
-        root.geometry("640x500")
-        root.minsize(560, 440)
+        root.geometry("760x540")
+        root.minsize(700, 460)
         self.songs = []
         f = ttk.Frame(root, padding=16)
         root.bind("<Configure>", lambda e: e.widget is root and self.layout(e.width, e.height))
@@ -137,13 +139,18 @@ class App:
         head = ttk.Frame(f)
         head.grid(row=0, column=0, sticky="ew")
         head.columnconfigure(0, weight=1)
-        ttk.Label(head, text="TagTune", style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        brand = ttk.Frame(head)
+        brand.grid(row=0, column=0, sticky="w")
+        ttk.Label(brand, text="$ tagtune", style="Title.TLabel").pack(side="left")
+        self.cursor = ttk.Label(brand, text="█", style="Cursor.TLabel")
+        self.cursor.pack(side="left", padx=(4, 0))
+        self.blink()
         tools = ttk.Frame(head)
         tools.grid(row=0, column=1, sticky="e")
-        self.update_btn = ttk.Button(tools, text="Update downloader", command=self.update_downloader)
-        self.folder_btn = ttk.Button(tools, text="Change folder…", command=self.change_folder)
+        self.update_btn = ttk.Button(tools, text="[ update downloader ]", command=self.update_downloader)
+        self.folder_btn = ttk.Button(tools, text="[ change folder ]", command=self.change_folder)
         self.folder_btn.grid(row=0, column=1, padx=(0, 8))
-        ttk.Button(tools, text="Open folder", command=self.open_folder).grid(row=0, column=2, padx=(0, 8))
+        ttk.Button(tools, text="[ open folder ]", command=self.open_folder).grid(row=0, column=2, padx=(0, 8))
         self.theme_btn = ttk.Button(tools, command=self.toggle_theme, takefocus=False)
         self.theme_btn.grid(row=0, column=3)
         self.stats = ttk.Label(head, style="Muted.TLabel")
@@ -161,25 +168,25 @@ class App:
         d.grid(row=0, column=0, sticky="nsew")
         d.columnconfigure(0, weight=1)
         d.rowconfigure(7, weight=1)
-        ttk.Label(d, text="DOWNLOAD", style="Section.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
-        ttk.Label(d, text="YouTube or YouTube Music link", style="Muted.TLabel").grid(
+        ttk.Label(d, text="// download", style="Section.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(d, text="> paste a youtube or youtube music link", style="Muted.TLabel").grid(
             row=1, column=0, columnspan=2, sticky="w", pady=(8, 4))
         self.url = tk.StringVar()
         self.entry = ttk.Entry(d, textvariable=self.url)
         self.entry.grid(row=2, column=0, sticky="ew", padx=(0, 8), ipady=4)
-        self.go = ttk.Button(d, text="Download", style="Accent.TButton", command=self.start)
+        self.go = ttk.Button(d, text="[ download ]", style="Accent.TButton", command=self.start)
         self.go.grid(row=2, column=1, sticky="ew")
 
         self.exact = tk.BooleanVar(value=False)
         self.exact_box = ttk.Checkbutton(d, variable=self.exact,
-                                         text="Download exactly this video (don't look for the official version)")
+                                         text="--exact   skip the search for the official version")
         self.exact_box.grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         self.msg = ttk.Label(d, style="Error.TLabel", justify="left")
         self.msg.grid(row=4, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self.bar = ttk.Progressbar(d, maximum=100)
         self.bar.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(12, 4))
-        self.status = ttk.Label(d, text="Ready", style="Muted.TLabel")
+        self.status = ttk.Label(d, text="ready", style="Muted.TLabel")
         self.status.grid(row=6, column=0, columnspan=2, sticky="w")
 
         self.list = tk.Text(d, height=8, wrap="word", relief="flat", borderwidth=0, highlightthickness=1,
@@ -194,16 +201,16 @@ class App:
         lib = self.lib = ttk.Frame(body)
         lib.columnconfigure(0, weight=1)
         lib.rowconfigure(1, weight=1)
-        ttk.Label(lib, text="LIBRARY", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(lib, text="// library", style="Section.TLabel").grid(row=0, column=0, sticky="w")
         self.query = tk.StringVar()
         self.query.trace_add("write", lambda *_: self.fill_library())
-        ttk.Label(lib, text="Search", style="Muted.TLabel").grid(row=0, column=1, sticky="e", padx=(0, 8))
+        ttk.Label(lib, text="filter:", style="Muted.TLabel").grid(row=0, column=1, sticky="e", padx=(0, 8))
         ttk.Entry(lib, textvariable=self.query, width=24).grid(row=0, column=2, columnspan=2, sticky="e")
         cols = ("title", "artist", "album", "time")
         self.tree = ttk.Treeview(lib, columns=cols, show="headings", selectmode="browse")
         for col, width, stretch in (("title", 160, True), ("artist", 110, True), ("album", 110, True),
                                     ("time", 56, False)):
-            self.tree.heading(col, text=col.capitalize(), anchor="w")
+            self.tree.heading(col, text=col, anchor="w")
             self.tree.column(col, width=width, minwidth=50, stretch=stretch, anchor="e" if col == "time" else "w")
         self.tree.grid(row=1, column=0, columnspan=3, sticky="nsew", pady=(8, 0))
         sb = ttk.Scrollbar(lib, orient="vertical", command=self.tree.yview)
@@ -256,8 +263,8 @@ class App:
         playlists = {Path(s[0]).parent for s in songs} - {folder}
         size = sum(s[5] for s in songs)
         count = f"{len(songs)} song{'s' * (len(songs) != 1)}"
-        lists = f" · {len(playlists)} playlist{'s' * (len(playlists) != 1)}" if playlists else ""
-        self.stats.configure(text=f"{count}{lists} · {human_size(size)} · {folder}")
+        lists = f"  │  {len(playlists)} playlist{'s' * (len(playlists) != 1)}" if playlists else ""
+        self.stats.configure(text=f"{count}{lists}  │  {human_size(size)}  │  {folder}")
         self.fill_library()
 
     def fill_library(self):
@@ -284,11 +291,13 @@ class App:
         s.configure(".", background=p["bg"], foreground=p["text"], bordercolor=p["border"],
                     lightcolor=p["bg"], darkcolor=p["bg"], troughcolor=p["border"], focuscolor=p["accent"])
         s.configure("Muted.TLabel", foreground=p["muted"])
-        s.configure("Section.TLabel", foreground=p["muted"], font=self.section_font)
+        s.configure("Section.TLabel", foreground=p["accent"], font=self.section_font)
+        s.configure("Title.TLabel", foreground=p["text"])
+        s.configure("Cursor.TLabel", foreground=p["accent"])
         s.configure("Treeview", background=p["surface"], fieldbackground=p["surface"], foreground=p["text"],
                     bordercolor=p["border"], lightcolor=p["surface"], darkcolor=p["surface"], rowheight=28)
         s.map("Treeview", background=[("selected", p["accent"])], foreground=[("selected", p["on_accent"])])
-        s.configure("Treeview.Heading", background=p["bg"], foreground=p["muted"], bordercolor=p["border"],
+        s.configure("Treeview.Heading", background=p["surface"], foreground=p["accent"], bordercolor=p["border"],
                     lightcolor=p["bg"], darkcolor=p["bg"], padding=(8, 4))
         s.map("Treeview.Heading", background=[("active", p["surface"])])
         s.configure("TSeparator", background=p["border"])
@@ -300,15 +309,18 @@ class App:
               lightcolor=[("disabled", p["bg"]), ("focus", p["accent"])],
               darkcolor=[("disabled", p["bg"]), ("focus", p["accent"])], fieldbackground=[("disabled", p["bg"])],
               foreground=[("disabled", p["muted"])])
-        s.configure("TButton", background=p["bg"], foreground=p["text"], padding=(12, 6))
-        s.map("TButton", background=[("active", p["surface"])], bordercolor=[("focus", p["accent"])],
-              foreground=[("disabled", p["muted"])])
-        s.configure("Accent.TButton", background=p["accent"], foreground=p["on_accent"], bordercolor=p["accent"],
-                    lightcolor=p["accent"], darkcolor=p["accent"], focuscolor=p["on_accent"], padding=(16, 6))
-        s.map("Accent.TButton", background=[("disabled", p["border"]), ("active", p["hover"])],
-              foreground=[("disabled", p["muted"])], bordercolor=[("disabled", p["border"])],
-              lightcolor=[("disabled", p["border"]), ("active", p["hover"])],
-              darkcolor=[("disabled", p["border"]), ("active", p["hover"])])
+        s.configure("TButton", background=p["bg"], foreground=p["muted"], bordercolor=p["border"],
+                    lightcolor=p["bg"], darkcolor=p["bg"], padding=(10, 5))
+        s.map("TButton", background=[("active", p["bg"])], foreground=[("disabled", p["border"]), ("active", p["text"])],
+              bordercolor=[("active", p["muted"]), ("focus", p["accent"])],
+              lightcolor=[("active", p["bg"])], darkcolor=[("active", p["bg"])])
+        s.configure("Accent.TButton", background=p["bg"], foreground=p["accent"], bordercolor=p["accent"],
+                    lightcolor=p["bg"], darkcolor=p["bg"], focuscolor=p["accent"], padding=(14, 5))
+        s.map("Accent.TButton", background=[("disabled", p["bg"]), ("active", p["accent"])],
+              foreground=[("disabled", p["border"]), ("active", p["on_accent"])],
+              bordercolor=[("disabled", p["border"])],
+              lightcolor=[("disabled", p["bg"]), ("active", p["accent"])],
+              darkcolor=[("disabled", p["bg"]), ("active", p["accent"])])
         s.configure("TCheckbutton", background=p["bg"], foreground=p["text"], indicatorbackground=p["surface"],
                     indicatorforeground=p["on_accent"], upperbordercolor=p["muted"], lowerbordercolor=p["muted"],
                     padding=(0, 2))
@@ -323,13 +335,17 @@ class App:
         self.root.setvar("::tagtune_bg", p["surface"])
         self.root.setvar("::tagtune_fg", p["text"])
         s.configure("Horizontal.TProgressbar", background=p["accent"], lightcolor=p["accent"],
-                    darkcolor=p["accent"], bordercolor=p["border"], troughcolor=p["border"])
+                    darkcolor=p["accent"], bordercolor=p["border"], troughcolor=p["surface"], thickness=10)
         self.list.configure(background=p["surface"], foreground=p["text"], highlightbackground=p["border"],
                             highlightcolor=p["border"], selectbackground=p["accent"],
                             selectforeground=p["on_accent"], insertbackground=p["surface"])
         for tag, color in (("ok", "accent"), ("keep", "text"), ("skip", "muted"), ("fail", "error"), ("muted", "muted")):
             self.list.tag_configure(tag, foreground=p[color])
-        self.theme_btn.configure(text="◐ Light mode" if self.theme == "dark" else "◐ Dark mode")
+        self.theme_btn.configure(text="[ light ]" if self.theme == "dark" else "[ dark ]")
+
+    def blink(self):
+        self.cursor.configure(text="" if self.cursor.cget("text") else "█")
+        self.root.after(530, self.blink)
 
     def toggle_theme(self):
         self.theme = "light" if self.theme == "dark" else "dark"
@@ -343,7 +359,7 @@ class App:
         self.blocked = bool(fatal)
         self.go.state(["disabled" if fatal else "!disabled"])
         self.show_message(fatal or " ".join(warnings))
-        self.status.configure(text=f"Saving to {self.out_dir}")
+        self.status.configure(text=f"saving to {self.out_dir}")
 
     def change_folder(self):
         from tkinter import filedialog
@@ -358,7 +374,7 @@ class App:
         self.refresh_library()
 
     def show_message(self, text):
-        self.msg.configure(text=f"⚠ {text}" if text else "")
+        self.msg.configure(text=f"! {text}" if text else "")
 
     def start(self):
         if self.running or self.blocked or self.updating:
@@ -386,7 +402,7 @@ class App:
         self.entry.state(["disabled" if running else "!disabled"])
         self.exact_box.state(["disabled" if running else "!disabled"])
         self.folder_btn.state(["disabled" if running else "!disabled"])
-        self.go.configure(text="Cancel" if running else "Download",
+        self.go.configure(text="[ cancel ]" if running else "[ download ]",
                           style="TButton" if running else "Accent.TButton",
                           command=self.stop if running else self.start)
         self.busy(running)
@@ -473,7 +489,7 @@ class App:
         if self.empty:
             self.list.delete("1.0", "end")
             self.empty = False
-        self.list.insert("end", f"{SYMBOL[kind]}  ", kind, name, "", f"   {note}\n", "fail" if kind == "fail" else "muted")
+        self.list.insert("end", f"{SYMBOL[kind]} ", kind, name, "", f"   {note}\n", "fail" if kind == "fail" else "muted")
         self.list.configure(state="disabled")
         self.list.see("end")
 
@@ -495,7 +511,7 @@ class App:
         self.refresh_library()
         if self.stale:
             self.update_btn.grid(row=0, column=0, padx=(0, 8))
-        self.status.configure(text=summary if summary.startswith(("Cancelled", "Failed")) else f"Done · {summary}")
+        self.status.configure(text=summary if summary.startswith(("Cancelled", "Failed")) else f"done · {summary}")
         self.entry.focus_set()
         self.entry.select_range(0, "end")
 
@@ -507,5 +523,5 @@ class App:
         self.update_btn.state(["!disabled"])
         if not self.blocked:
             self.go.state(["!disabled"])
-        self.status.configure(text="Ready")
+        self.status.configure(text="ready")
         self.show_message("Update failed. Check your internet connection and try again.")
